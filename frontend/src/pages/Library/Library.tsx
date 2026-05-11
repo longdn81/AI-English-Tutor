@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import { BookOpen, Layers, MessagesSquare, Mic2, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import GrammarTopicList from './components/GrammarTopicList';
+import GrammarQuizBoard from './components/GrammarQuizBoard';
 
 const categories = [
   {
@@ -39,6 +42,30 @@ const categories = [
 ];
 
 export default function Library() {
+  const [currentView, setCurrentView] = useState<'main' | 'grammar_topics' | 'quiz'>('main');
+  const [selectedTopic, setSelectedTopic] = useState<string>('');
+
+  const handleStartGrammar = () => {
+    setCurrentView('grammar_topics');
+  };
+
+  const handleSelectTopic = (topic: string) => {
+    setSelectedTopic(topic);
+    setCurrentView('quiz');
+  };
+
+  const handleBackToMain = () => {
+    setCurrentView('main');
+  };
+
+  if (currentView === 'grammar_topics') {
+    return <GrammarTopicList onBack={handleBackToMain} onSelectTopic={handleSelectTopic} />;
+  }
+
+  if (currentView === 'quiz') {
+    return <GrammarQuizBoard topic={selectedTopic} email="student_vku@gmail.com" onBack={handleBackToMain} />;
+  }
+
   return (
     <div className="w-full max-w-[1120px] mx-auto px-4 lg:px-16 py-12 flex flex-col gap-12">
       <header className="flex flex-col gap-4">
@@ -55,7 +82,10 @@ export default function Library() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: i * 0.1 }}
-            className={`bg-surface-container-lowest rounded-[2rem] p-8 lg:p-10 border border-outline-variant/30 shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col justify-between group relative overflow-hidden ${cat.large ? 'md:col-span-2' : ''}`}
+            className={`bg-surface-container-lowest rounded-[2rem] p-8 lg:p-10 border border-outline-variant/30 shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${cat.large ? 'md:col-span-2' : ''}`}
+            onClick={() => {
+              if (cat.id === 'grammar') handleStartGrammar();
+            }}
           >
             {cat.large && (
               <div className="absolute -right-12 -top-12 w-48 h-48 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-700" />

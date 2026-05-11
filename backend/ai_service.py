@@ -110,3 +110,71 @@ async def get_session_summary(messages: list) -> dict:
         print("❌ Lỗi thực thi get_session_summary:")
         traceback.print_exc()
         return {"error": str(e)}
+
+LIBRARY_GENERATOR_PROMPT = """
+You are an expert English Tutor creating learning materials.
+Task Type: {task_type}
+Context/Topic: {context}
+
+Please generate the content in a STRICT JSON format based on the Task Type.
+
+If Task Type is "grammar_quiz":
+Output JSON format:
+{{
+  "theory_summary": "A 3-sentence clear explanation of the grammar rule in Vietnamese.",
+  "example_sentence": "One practical English example illustrating the rule.",
+  "questions": [
+    {{
+      "question": "The sentence with a ___ blank.",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "A",
+      "explanation_vn": "Detailed explanation in Vietnamese of why A is correct and the others are wrong."
+    }}
+  ]
+}}
+
+If Task Type is "vocab_story":
+Output JSON format:
+{{
+  "title": "Story Title",
+  "story_text": "The full story with some advanced vocabulary words used naturally.",
+  "vocabulary": [
+    {{
+      "word": "advanced_word",
+      "definition": "definition of the word",
+      "example": "example sentence"
+    }}
+  ]
+}}
+
+If Task Type is "custom_topic":
+Output JSON format:
+{{
+  "title": "Topic Title",
+  "content": "Detailed text about the context.",
+  "key_takeaways": ["Point 1", "Point 2"]
+}}
+"""
+
+async def generate_library_content(task_type: str, context: str) -> dict:
+    """Generate dynamic learning content for the Library page."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return {"error": "Missing API Key"}
+        
+    try:
+        client = genai.Client(api_key=api_key)
+        prompt = LIBRARY_GENERATOR_PROMPT.format(task_type=task_type, context=context)
+        
+        response = await client.aio.models.generate_content(
+            model="gemini-flash-latest",
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print("❌ Lỗi thực thi generate_library_content:")
+        traceback.print_exc()
+        return {"error": str(e)}

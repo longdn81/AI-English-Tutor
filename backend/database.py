@@ -10,6 +10,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 client = AsyncIOMotorClient(MONGO_URI)
 db = client["english_tutor_db"]
 conversations_collection = db["conversations"]
+quiz_results_collection = db["quiz_results"]
 
 
 async def save_conversation(data: dict, user_email: str):
@@ -32,3 +33,15 @@ async def get_conversations_by_user(user_email: str):
             conv["created_at"] = conv["created_at"].isoformat()
             
     return conversations
+
+async def save_quiz_result(user_email: str, topic: str, score: int, total_questions: int):
+    """Insert a quiz result into the quiz_results collection."""
+    data = {
+        "user_email": user_email,
+        "topic": topic,
+        "score": score,
+        "total_questions": total_questions,
+        "completed_at": datetime.utcnow()
+    }
+    result = await quiz_results_collection.insert_one(data)
+    return result
