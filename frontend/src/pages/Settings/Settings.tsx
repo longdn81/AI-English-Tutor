@@ -1,7 +1,63 @@
 import { User, Languages, Bell, ShieldCheck, ChevronDown, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useState, useEffect } from 'react';
 
 export default function Settings() {
+  // ── Voice & Audio State ──
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<string>(
+    localStorage.getItem('preferredVoice') || ''
+  );
+  const [tempo, setTempo] = useState<string>(
+    localStorage.getItem('speechTempo') || 'Natural'
+  );
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const allVoices = window.speechSynthesis.getVoices();
+      const enVoices = allVoices.filter(v => v.lang.startsWith('en'));
+      setVoices(enVoices);
+      
+      if (!localStorage.getItem('preferredVoice') && enVoices.length > 0) {
+        const defaultVoice = enVoices.find(v => v.name.includes('Google US English') || v.name.includes('Microsoft Aria')) || enVoices[0];
+        setSelectedVoice(defaultVoice.name);
+        localStorage.setItem('preferredVoice', defaultVoice.name);
+      }
+    };
+    
+    loadVoices();
+    // Some browsers populate voices asynchronously
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
+
+  const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setSelectedVoice(val);
+    localStorage.setItem('preferredVoice', val);
+    
+    // Preview the voice
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance("Hi there, I'm ready to chat.");
+    const voice = voices.find(v => v.name === val);
+    if (voice) u.voice = voice;
+    const rateMap: Record<string, number> = { Relaxed: 0.85, Natural: 1.0, Fluent: 1.15 };
+    u.rate = rateMap[tempo] || 1.0;
+    window.speechSynthesis.speak(u);
+  };
+
+  const handleTempoChange = (mode: string) => {
+    setTempo(mode);
+    localStorage.setItem('speechTempo', mode);
+    
+    // Preview the tempo
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(`This is the ${mode} tempo.`);
+    const voice = voices.find(v => v.name === selectedVoice);
+    if (voice) u.voice = voice;
+    const rateMap: Record<string, number> = { Relaxed: 0.85, Natural: 1.0, Fluent: 1.15 };
+    u.rate = rateMap[mode] || 1.0;
+    window.speechSynthesis.speak(u);
+  };
   return (
     <div className="w-full max-w-[1120px] mx-auto px-4 lg:px-16 py-12 flex flex-col gap-12">
       <header className="flex flex-col gap-3">
@@ -50,15 +106,23 @@ export default function Settings() {
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">AI Conversation Partner</label>
                 <div className="relative">
-                  <select className="w-full appearance-none bg-surface-container-low border border-outline-variant/50 rounded-2xl py-4 pl-6 pr-12 text-on-surface font-bold text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-shadow">
-                    <option>Emilia (Calm, British English)</option>
-                    <option>Mateo (Warm, Spanish)</option>
-                    <option>Yuki (Clear, Japanese)</option>
-                    <option>Liam (Energetic, American English)</option>
+                  <select 
+                    value={selectedVoice}
+                    onChange={handleVoiceChange}
+                    className="w-full appearance-none bg-surface-container-low border border-outline-variant/50 rounded-2xl py-4 pl-6 pr-12 text-on-surface font-bold text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-shadow"
+                  >
+                    {voices.map(v => (
+                      <option key={v.name} value={v.name}>
+                        {v.name} ({v.lang})
+                      </option>
+                    ))}
+                    {voices.length === 0 && (
+                      <option>Loading voices...</option>
+                    )}
                   </select>
                   <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-on-surface-variant" size={20} />
                 </div>
-                <p className="text-xs text-on-surface-variant mt-3 leading-relaxed">Select the voice that feels most encouraging for you.</p>
+                <p className="text-xs text-on-surface-variant mt-3 leading-relaxed">Select the voice that feels most encouraging for you. Selecting a voice will play a preview.</p>
               </div>
 
               <div>
@@ -67,8 +131,9 @@ export default function Settings() {
                   {['Relaxed', 'Natural', 'Fluent'].map((mode) => (
                     <button
                       key={mode}
+                      onClick={() => handleTempoChange(mode)}
                       className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${
-                        mode === 'Natural' 
+                        tempo === mode 
                           ? 'bg-surface-container-lowest shadow-sm text-primary' 
                           : 'text-on-surface-variant hover:text-on-surface'
                       }`}

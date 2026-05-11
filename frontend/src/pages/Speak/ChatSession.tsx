@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Mic, X, Keyboard, MoreVertical, Bot, Lightbulb, Sparkles, History, Loader2, AlertCircle } from 'lucide-react';
+import { Mic, X, Keyboard, MoreVertical, Bot, Lightbulb, Sparkles, History, Loader2, AlertCircle, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Message {
@@ -39,6 +39,62 @@ export default function ChatSession() {
       timestamp: new Date(),
     },
   ]);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+
+  // ── Speech Synthesis (AI Voice) ─────────────────────────
+  useEffect(() => {
+    // Pre-load voices to avoid delay on first speak
+    window.speechSynthesis.getVoices();
+  }, []);
+
+  const speak = useCallback((text: string, messageId: string) => {
+    window.speechSynthesis.cancel();
+    setSpeakingId(null);
+    
+    if (!text) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoiceName = localStorage.getItem('preferredVoice');
+    const tempo = localStorage.getItem('speechTempo') || 'Natural';
+    const rateMap: Record<string, number> = { Relaxed: 0.85, Natural: 1.0, Fluent: 1.15 };
+    
+    let selectedVoice = null;
+    
+    if (preferredVoiceName) {
+      selectedVoice = voices.find(v => v.name === preferredVoiceName) || null;
+    }
+    
+    if (!selectedVoice) {
+      const preferredVoices = ['Google US English', 'Microsoft Aria', 'Samantha', 'Alex', 'Victoria'];
+      for (const name of preferredVoices) {
+        const match = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'));
+        if (match) {
+          selectedVoice = match;
+          break;
+        }
+      }
+    }
+    
+    // Fallback to any en-US voice
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en')) || null;
+    }
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+    utterance.lang = 'en-US';
+    utterance.rate = rateMap[tempo] || 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => setSpeakingId(messageId);
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+
+    window.speechSynthesis.speak(utterance);
+  }, []);
 
   // ── Refs ───────────────────────────────────────────────
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -53,9 +109,10 @@ export default function ChatSession() {
     }
   }, [messages, isProcessing]);
 
-  // Cleanup media stream on unmount
+  // Cleanup media stream and speech on unmount
   useEffect(() => {
     return () => {
+      window.speechSynthesis.cancel();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -114,6 +171,11 @@ export default function ChatSession() {
       };
 
       setMessages(prev => [...prev, userMessage, aiMessage]);
+
+      // Auto-play the AI response
+      if (data.ai_response) {
+        speak(data.ai_response, aiMessage.id);
+      }
     } catch (err: any) {
       console.error('API Error:', err);
       setError(err.message || 'Something went wrong. Please try again.');
@@ -137,6 +199,8 @@ export default function ChatSession() {
   const startRecording = useCallback(async () => {
     try {
       setError(null);
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
@@ -248,12 +312,28 @@ export default function ChatSession() {
               </div>
               
               <div className="flex flex-col gap-2">
-                <div className={`rounded-[1.5rem] px-6 py-4 shadow-sm border ${
-                  msg.role === 'user' 
-                    ? 'bg-primary text-on-primary rounded-tr-sm border-primary shadow-primary/10' 
-                    : 'bg-surface-container-lowest text-on-surface rounded-tl-sm border-outline-variant/20'
-                }`}>
-                  <p className="text-body-md leading-relaxed">{msg.text}</p>
+                <div className={`group/msg flex items-center gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`rounded-[1.5rem] px-6 py-4 shadow-sm border ${
+                    msg.role === 'user' 
+                      ? 'bg-primary text-on-primary rounded-tr-sm border-primary shadow-primary/10' 
+                      : 'bg-surface-container-lowest text-on-surface rounded-tl-sm border-outline-variant/20'
+                  }`}>
+                    <p className="text-body-md leading-relaxed">{msg.text}</p>
+                  </div>
+                  
+                  {msg.role === 'ai' && (
+                    <button
+                      onClick={() => speak(msg.text, msg.id)}
+                      className={`p-2 rounded-full transition-all flex-shrink-0 ${
+                        speakingId === msg.id 
+                          ? 'text-primary bg-primary/10 animate-pulse' 
+                          : 'text-on-surface-variant hover:bg-surface-container-high opacity-0 group-hover/msg:opacity-100'
+                      }`}
+                      title="Play Audio"
+                    >
+                      <Volume2 size={18} />
+                    </button>
+                  )}
                 </div>
 
                 {/* Correction Feedback */}
