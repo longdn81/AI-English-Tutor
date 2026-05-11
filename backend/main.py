@@ -1,40 +1,48 @@
-from fastapi import FastAPI, HTTPException
+import traceback
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from dotenv import load_dotenv
-import os
+from fastapi.responses import JSONResponse
 
-from ai_service import generate_tutor_response
-
-load_dotenv()
+from ai_service import get_ai_feedback
+from database import save_conversation
 
 app = FastAPI(title="AI English Tutor API")
 
-# Setup CORS
-origins = [
-    "http://localhost:5173",  # default Vite dev server
-    "http://127.0.0.1:5173",
-]
-
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-class ChatRequest(BaseModel):
-    text: str
-
-@app.get("/")
-async def root():
-    return {"message": "Welcome to AI English Tutor API"}
 
 @app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest):
+async def chat(
+    audio_file: UploadFile = File(...),
+    topic: str = Form(...),
+):
     try:
-        response_data = generate_tutor_response(request.text)
-        return response_data
+        # Read the uploaded audio bytes
+        audio_bytes = await audio_file.read()
+        mime_type = audio_file.content_type or "audio/webm"
+
+        # Get AI feedback from Gemini
+        ai_result = await get_ai_feedback(audio_bytes, mime_type, topic)
+
+        # Save the conversation to MongoDB
+        await save_conversation({
+            "topic": topic,
+            "mime_type": mime_type,
+            "ai_result": ai_result,
+        })
+
+        return ai_result
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)},
+        )

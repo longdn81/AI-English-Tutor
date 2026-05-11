@@ -1,48 +1,56 @@
 import os
-import google.generativeai as genai
-from dotenv import load_dotenv
 import json
+import traceback
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
+# Load file .env
 load_dotenv()
-
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 SYSTEM_PROMPT = """
 You are a friendly and expert AI English Tutor. You are having a voice-to-voice conversation with a Vietnamese English learner.
-
-Here is the text transcribed from the user's speech: "{user_input}"
-
-Your tasks:
-1. Analyze: Check the user's input for any grammar, vocabulary, or syntax errors.
-2. Correct & Explain: If there are errors, provide a corrected version. Briefly explain the errors made and why the correction is better in VIETNAMESE (so the learner can easily understand).
-3. Vocabulary Enhancement: Suggest 1-2 advanced words, idioms, or natural phrasal verbs that could replace basic words in their sentence (Include Vietnamese meanings).
-4. Respond: Provide a natural, friendly conversational response in ENGLISH to keep the chat going. Act like a native friend and ask a follow-up question.
-
-Strict Output Requirement: You MUST return your response ONLY as a valid JSON object. Do NOT wrap it in markdown blocks (like ```json). Use the exact keys below:
-
-{
-  "has_error": boolean,
-  "original_text": "exact text from user",
-  "corrected_text": "the corrected sentence (or null if perfect)",
-  "error_explanation": "brief explanation in Vietnamese (or null)",
-  "advanced_suggestions": ["suggestion 1 (meaning)", "suggestion 2 (meaning)"],
-  "ai_response": "your conversational response to the user in English"
-}
+The chosen conversation topic is: "{topic}".
+Listen to the audio, transcribe it, check for errors, explain in Vietnamese, suggest advanced vocabulary, and respond naturally in English.
+Strictly output a JSON object with keys: has_error (boolean), original_text, corrected_text, error_explanation, advanced_suggestions (array), ai_response.
 """
 
-def generate_tutor_response(user_input: str) -> dict:
-    """
-    Sends the user input to Gemini with the system prompt and returns the JSON response.
-    """
-    model = genai.GenerativeModel('gemini-1.5-pro')
-    prompt = SYSTEM_PROMPT.replace("{user_input}", user_input)
+async def get_ai_feedback(audio_bytes: bytes, mime_type: str, topic: str) -> dict:
+    """Gửi audio đến Gemini và nhận kết quả JSON."""
     
-    response = model.generate_content(prompt)
-    
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("❌ LỖI: Thiếu API KEY trong .env")
+        return {"error": "Missing API Key"}
+
     try:
-        # Assuming the model returns raw JSON as requested
+        # 1. Khởi tạo client
+        client = genai.Client(api_key=api_key)
+
+        # 2. Chuẩn bị nội dung (Bản 2.0 flash là bản ổn định nhất cho Audio hiện nay)
+        prompt = SYSTEM_PROMPT.format(topic=topic)
+        audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
+
+        # 3. Gọi Gemini 
+        # Lưu ý quan trọng: Dùng 'gemini-2.5-flash' 
+        # SDK mới này tự xử lý prefix 'models/' nên bạn CHỈ cần viết tên model
+        # Các model 2.0 hiện tại có thể bị giới hạn (Quota Exceeded) trên tài khoản của bạn, 
+        # bản 2.5 Flash là bản mới nhất và đang có sẵn quota miễn phí ổn định.
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",  # Đổi sang 2.5 flash
+            contents=[prompt, audio_part],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            ),
+        )
+
+        # 4. Parse kết quả
         return json.loads(response.text)
-    except json.JSONDecodeError:
-        # In case the model still returns markdown blocks despite instructions
-        cleaned_text = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(cleaned_text)
+
+    except Exception as e:
+        print("❌ Lỗi thực thi tại ai_service.py:")
+        # In ra lỗi chi tiết của Google để biết chính xác tại sao nó từ chối
+        if hasattr(e, 'message'):
+            print(f"Chi tiết lỗi từ Google: {e.message}")
+        traceback.print_exc()
+        raise e
