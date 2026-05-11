@@ -1,0 +1,18 @@
+# ===== FRONTEND =====
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# ===== BACKEND =====
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/.env
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+*.log

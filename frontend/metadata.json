@@ -1,0 +1,8 @@
+{
+  "name": "LingoFlow",
+  "description": "AI-powered English tutor for practicing real-world conversations with mindful fluency.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
