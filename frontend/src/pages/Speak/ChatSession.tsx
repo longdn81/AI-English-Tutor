@@ -693,7 +693,7 @@ export default function ChatSession() {
                   <Loader2 size={48} className="text-primary animate-spin" />
                   <p className="text-xl font-display font-bold text-on-surface">Evaluating your session...</p>
                 </div>
-              ) : summaryData ? (
+              ) : summaryData && !summaryData.error ? (
                 <div className="flex flex-col gap-6 md:gap-8">
                   <div className="flex items-center justify-between">
                     <h2 className="font-display text-2xl md:text-3xl font-bold text-on-surface flex items-center gap-3">
@@ -736,8 +736,9 @@ export default function ChatSession() {
                 </div>
               ) : (
                 <div className="py-20 text-center flex flex-col items-center gap-4">
-                  <p className="text-error font-bold">Failed to load summary.</p>
-                  <button onClick={() => setShowSummary(false)} className="px-6 py-2 bg-surface-container rounded-xl font-bold">Close</button>
+                  <p className="text-error font-bold text-lg">Failed to evaluate session.</p>
+                  <p className="text-on-surface-variant max-w-sm">{summaryData?.error || "Unknown error occurred while generating the summary."}</p>
+                  <button onClick={() => setShowSummary(false)} className="px-8 py-3 bg-surface-container-high rounded-xl font-bold text-on-surface hover:bg-surface-container-highest transition-colors mt-4">Close</button>
                 </div>
               )}
             </motion.div>

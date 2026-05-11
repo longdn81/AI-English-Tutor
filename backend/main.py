@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from ai_service import get_ai_feedback, get_session_summary
-from database import save_conversation
+from database import save_conversation, get_conversations_by_user
 
 app = FastAPI(title="AI English Tutor API")
 
@@ -36,12 +36,15 @@ async def chat(
         # Get AI feedback from Gemini
         ai_result = await get_ai_feedback(audio_bytes=audio_bytes, mime_type=mime_type, topic=topic, text_message=text_message)
 
+        # Mock Auth: Hardcode user_email for now
+        user_email = "student_vku@gmail.com"
+
         # Save the conversation to MongoDB
         await save_conversation({
             "topic": topic,
             "mime_type": mime_type,
             "ai_result": ai_result,
-        })
+        }, user_email=user_email)
 
         return ai_result
 
@@ -60,6 +63,18 @@ async def chat_summary(req: SummaryRequest):
     try:
         summary_result = await get_session_summary(req.messages)
         return summary_result
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)},
+        )
+
+@app.get("/api/history/{user_email}")
+async def get_history(user_email: str):
+    try:
+        conversations = await get_conversations_by_user(user_email)
+        return {"conversations": conversations}
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(

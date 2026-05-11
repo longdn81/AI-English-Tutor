@@ -40,9 +40,9 @@ async def get_ai_feedback(audio_bytes: bytes = None, mime_type: str = None, topi
             return {"error": "Missing both audio and text message"}
 
         # 3. Gọi Gemini 
-        # Sử dụng model 2.5 Flash
+        # Sử dụng model flash-latest
         response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash", 
+            model="gemini-flash-latest", 
             contents=contents,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -99,7 +99,7 @@ async def get_session_summary(messages: list) -> dict:
         prompt = SUMMARY_PROMPT.format(chat_history=formatted_history)
         
         response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-flash-latest",
             contents=[prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
