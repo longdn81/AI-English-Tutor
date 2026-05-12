@@ -134,17 +134,38 @@ Output JSON format:
 }}
 
 If Task Type is "vocab_story":
+Write a very short, engaging story (max 100 words) using these exact English words: {context}. Highlight the words in bold (e.g. **word**).
 Output JSON format:
 {{
-  "title": "Story Title",
-  "story_text": "The full story with some advanced vocabulary words used naturally.",
-  "vocabulary": [
+  "story_en": "The short story in English with highlighted words.",
+  "translation_vn": "The full translation of the story in Vietnamese."
+}}
+
+If Task Type is "phrases":
+Generate 10 practical, ready-to-use English phrases for the situation: {context}.
+Output JSON format:
+{{
+  "phrases": [
     {{
-      "word": "advanced_word",
-      "definition": "definition of the word",
-      "example": "example sentence"
+      "english": "The phrase in English",
+      "vietnamese": "The Vietnamese translation",
+      "nuance": "A short note on when/how to use it or its tone"
     }}
   ]
+}}
+
+If Task Type is "pronunciation_sentences":
+Generate 5 challenging English sentences for pronunciation practice. They should contain tongue-twisters, common difficult sound combinations (like th, r/l, v/w, sh/ch), or rhythmic phrasing. Do not include any explanations, just the sentences.
+Output JSON format:
+{{
+  "sentences": ["Sentence 1", "Sentence 2", "Sentence 3", "Sentence 4", "Sentence 5"]
+}}
+
+If Task Type is "vocab_words":
+Generate 5 practical English vocabulary words for an intermediate learner. Only return the words, capitalized.
+Output JSON format:
+{{
+  "words": ["Word1", "Word2", "Word3", "Word4", "Word5"]
 }}
 
 If Task Type is "custom_topic":
@@ -176,5 +197,42 @@ async def generate_library_content(task_type: str, context: str) -> dict:
         return json.loads(response.text)
     except Exception as e:
         print("❌ Lỗi thực thi generate_library_content:")
+        return {"error": str(e)}
+
+PRONUNCIATION_PROMPT = """
+You are an expert English Pronunciation Tutor.
+Listen to the user's audio recording and compare it to this target sentence:
+"{target_text}"
+
+Evaluate their pronunciation, intonation, and rhythm.
+Strictly output a JSON object with:
+- score (number from 0 to 100),
+- feedback (string with a concise critique and tips for improvement in Vietnamese),
+- words_to_practice (list of strings, the specific words they struggled with, if any).
+"""
+
+async def evaluate_pronunciation(audio_bytes: bytes, mime_type: str, target_text: str) -> dict:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return {"error": "Missing API Key"}
+        
+    try:
+        client = genai.Client(api_key=api_key)
+        audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
+        contents = [
+            audio_part,
+            PRONUNCIATION_PROMPT.format(target_text=target_text)
+        ]
+        
+        response = await client.aio.models.generate_content(
+            model="gemini-flash-latest",
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print("❌ Lỗi thực thi evaluate_pronunciation:")
         traceback.print_exc()
         return {"error": str(e)}

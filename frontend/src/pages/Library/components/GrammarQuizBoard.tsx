@@ -53,6 +53,19 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
           total_questions: quizData.questions.length
         })
       }).catch(err => console.error("Failed to save score:", err));
+
+      fetch(`${API_URL}/api/library/update-progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_email: email,
+          category: "library",
+          sub_category: "grammar_quiz",
+          item_id: topic,
+          status: score >= 4 ? "mastered" : "attempted",
+          score: score
+        })
+      }).catch(err => console.error("Failed to update progress:", err));
     }
   }, [isFinished, quizData, email, topic, score]);
 
@@ -118,7 +131,7 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
       </div>
 
       {currentIndex === 0 && quizData.theory_summary && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-primary/5 border border-primary/20 rounded-3xl p-6 lg:p-8 mb-8"
@@ -137,7 +150,7 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
         </motion.div>
       )}
 
-      <motion.div 
+      <motion.div
         key={currentIndex}
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -152,7 +165,7 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
             const isSelected = selectedAnswer === opt;
             const isCorrect = opt === q.correct_answer;
             let btnClass = "bg-surface-container hover:bg-surface-container-high border-outline-variant/20 text-on-surface";
-            
+
             if (selectedAnswer) {
               if (isCorrect) btnClass = "bg-tertiary/10 border-tertiary text-tertiary";
               else if (isSelected) btnClass = "bg-error/10 border-error text-error";
@@ -160,7 +173,7 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
             }
 
             return (
-              <button 
+              <button
                 key={i}
                 disabled={!!selectedAnswer}
                 onClick={() => handleAnswer(opt)}
@@ -176,15 +189,15 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
 
         <AnimatePresence>
           {selectedAnswer && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 10, height: 0 }}
               animate={{ opacity: 1, y: 0, height: 'auto' }}
               className="border-t border-outline-variant/20 pt-6 overflow-hidden"
             >
               <h4 className="font-bold uppercase tracking-widest text-primary text-xs mb-3">Tutor's Explanation</h4>
               <p className="text-on-surface-variant leading-relaxed mb-6">{q.explanation_vn}</p>
-              
-              <button 
+
+              <button
                 onClick={handleNext}
                 className="w-full flex justify-center items-center gap-2 py-4 bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/90 transition-colors"
               >

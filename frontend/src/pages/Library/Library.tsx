@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BookOpen, Layers, MessagesSquare, Mic2, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import GrammarTopicList from './components/GrammarTopicList';
 import GrammarQuizBoard from './components/GrammarQuizBoard';
+import VocabularySets from './components/VocabularySets';
+import TopicPhrases from './components/TopicPhrases';
+import PronunciationWorkshop from './components/PronunciationWorkshop';
 
 const categories = [
   {
@@ -42,11 +45,36 @@ const categories = [
 ];
 
 export default function Library() {
-  const [currentView, setCurrentView] = useState<'main' | 'grammar_topics' | 'quiz'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'grammar_topics' | 'quiz' | 'vocab' | 'phrases' | 'pronunciation'>('main');
   const [selectedTopic, setSelectedTopic] = useState<string>('');
+  const [progressData, setProgressData] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (currentView === 'main') {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      fetch(`${API_URL}/api/progress/student_vku@gmail.com`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.progress) setProgressData(data.progress);
+        })
+        .catch(console.error);
+    }
+  }, [currentView]);
 
   const handleStartGrammar = () => {
     setCurrentView('grammar_topics');
+  };
+
+  const handleStartVocab = () => {
+    setCurrentView('vocab');
+  };
+
+  const handleStartPhrases = () => {
+    setCurrentView('phrases');
+  };
+
+  const handleStartPronunciation = () => {
+    setCurrentView('pronunciation');
   };
 
   const handleSelectTopic = (topic: string) => {
@@ -66,6 +94,38 @@ export default function Library() {
     return <GrammarQuizBoard topic={selectedTopic} email="student_vku@gmail.com" onBack={handleBackToMain} />;
   }
 
+  if (currentView === 'vocab') {
+    return <VocabularySets onBack={handleBackToMain} />;
+  }
+
+  if (currentView === 'phrases') {
+    return <TopicPhrases email="student_vku@gmail.com" onBack={handleBackToMain} />;
+  }
+
+  if (currentView === 'pronunciation') {
+    return <PronunciationWorkshop email="student_vku@gmail.com" onBack={handleBackToMain} />;
+  }
+
+  // Calculate dynamic stats
+  const grammarMastered = progressData.filter(p => p.sub_category === 'grammar' && p.status === 'mastered').length;
+  const phrasesCompleted = progressData.filter(p => p.sub_category === 'phrases').length;
+  const pronunMastered = progressData.filter(p => p.sub_category === 'pronunciation' && p.status === 'mastered').length;
+  const pronunTotal = 4;
+
+  const dynamicCategories = categories.map(cat => {
+    const newCat = { ...cat };
+    if (cat.id === 'grammar') {
+      newCat.tags = ['12 Lessons', `${grammarMastered} Mastered`];
+    }
+    if (cat.id === 'phrases') {
+      newCat.tags = [`${phrasesCompleted} Topics Completed`];
+    }
+    if (cat.id === 'pronunciation') {
+      newCat.progress = Math.round((pronunMastered / pronunTotal) * 100);
+    }
+    return newCat;
+  });
+
   return (
     <div className="w-full max-w-[1120px] mx-auto px-4 lg:px-16 py-12 flex flex-col gap-12">
       <header className="flex flex-col gap-4">
@@ -76,7 +136,7 @@ export default function Library() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
-        {categories.map((cat, i) => (
+        {dynamicCategories.map((cat, i) => (
           <motion.div
             key={cat.id}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -85,6 +145,9 @@ export default function Library() {
             className={`bg-surface-container-lowest rounded-[2rem] p-8 lg:p-10 border border-outline-variant/30 shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${cat.large ? 'md:col-span-2' : ''}`}
             onClick={() => {
               if (cat.id === 'grammar') handleStartGrammar();
+              if (cat.id === 'vocab') handleStartVocab();
+              if (cat.id === 'phrases') handleStartPhrases();
+              if (cat.id === 'pronunciation') handleStartPronunciation();
             }}
           >
             {cat.large && (

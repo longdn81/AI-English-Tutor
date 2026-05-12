@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
 
-from ai_service import get_ai_feedback, get_session_summary, generate_library_content
-from database import save_conversation, get_conversations_by_user, save_quiz_result
+from ai_service import get_ai_feedback, get_session_summary, generate_library_content, evaluate_pronunciation
+from database import save_conversation, get_conversations_by_user, save_quiz_result, get_user_progress, update_user_progress
 
 app = FastAPI(title="AI English Tutor API")
 
@@ -110,6 +110,57 @@ async def save_score(req: QuizScoreRequest):
     try:
         await save_quiz_result(req.user_email, req.topic, req.score, req.total_questions)
         return {"status": "success"}
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)},
+        )
+
+class ProgressUpdateRequest(BaseModel):
+    user_email: str
+    category: str
+    sub_category: str
+    item_id: str
+    status: str
+    score: Optional[int] = None
+
+@app.post("/api/library/update-progress")
+@app.post("/api/progress/update")
+async def update_progress(req: ProgressUpdateRequest):
+    try:
+        await update_user_progress(req.user_email, req.category, req.sub_category, req.item_id, req.status, req.score)
+        return {"status": "success"}
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)},
+        )
+
+@app.get("/api/progress/{user_email}")
+async def get_progress(user_email: str):
+    try:
+        progress = await get_user_progress(user_email)
+        return {"progress": progress}
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)},
+        )
+
+@app.post("/api/library/pronunciation")
+async def evaluate_pronunciation_endpoint(
+    audio_file: UploadFile = File(...),
+    target_text: str = Form(...),
+):
+    try:
+        audio_bytes = await audio_file.read()
+        mime_type = audio_file.content_type or "audio/webm"
+        
+        result = await evaluate_pronunciation(audio_bytes, mime_type, target_text)
+        return result
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(
