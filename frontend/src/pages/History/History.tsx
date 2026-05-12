@@ -1,12 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Clock, SpellCheck, TrendingUp, Play, AlertCircle, Lightbulb, CheckCircle2, X, Volume2, Loader2, StopCircle, Filter } from 'lucide-react';
+import { Clock, SpellCheck, TrendingUp, Play, AlertCircle, Lightbulb, CheckCircle2, X, Volume2, Loader2, StopCircle, Filter, Sparkles, BookOpen, FileEdit, Unlock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAuth } from '../../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function HistoryPage() {
+  const { user } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
+  const [insight, setInsight] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   // Filter States
@@ -24,10 +27,13 @@ export default function HistoryPage() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/history/student_vku@gmail.com`);
+      const res = await fetch(`${API_URL}/api/history/dashboard/${encodeURIComponent(user?.email || '')}`);
       const data = await res.json();
-      if (data.conversations) {
-        setLogs(data.conversations);
+      if (data.feed) {
+        setLogs(data.feed);
+      }
+      if (data.insight) {
+        setInsight(data.insight);
       }
     } catch (err) {
       console.error(err);
@@ -41,7 +47,7 @@ export default function HistoryPage() {
     return logs.filter(log => {
       // Date Filter
       if (filterDate !== 'all') {
-        const logDate = new Date(log.created_at);
+        const logDate = new Date(log.timestamp);
         const now = new Date();
         const diffDays = (now.getTime() - logDate.getTime()) / (1000 * 3600 * 24);
         
@@ -83,8 +89,8 @@ export default function HistoryPage() {
       cData.push({ name: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), count: 0 });
     }
     filteredLogs.forEach((conv: any) => {
-      if (conv.created_at) {
-        const dateStr = new Date(conv.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (conv.timestamp) {
+        const dateStr = new Date(conv.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const target = cData.find(item => item.name === dateStr);
         if (target) target.count += 1;
       }
@@ -137,6 +143,23 @@ export default function HistoryPage() {
           Track your progress and review past conversations.
         </p>
       </header>
+
+      {/* AI Insight Banner */}
+      {insight && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-primary-container/60 to-tertiary-container/60 rounded-3xl p-6 lg:p-8 shadow-sm border border-primary/20 flex flex-col md:flex-row gap-4 lg:gap-6 items-start"
+        >
+          <div className="bg-white/60 p-3 rounded-2xl text-primary shadow-sm flex-shrink-0">
+            <Sparkles size={28} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-primary mb-3">AI Tutor Insight</h3>
+            <p className="text-on-surface text-lg font-medium leading-relaxed">{insight}</p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Progress Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
@@ -240,8 +263,73 @@ export default function HistoryPage() {
         ) : (
           <div className="flex flex-col gap-4">
             {filteredLogs.map((log, i) => {
+              const date = new Date(log.timestamp || log.created_at || log.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+              
+              if (log.type === "progress") {
+                if (log.sub_category === "grammar_quiz" || log.sub_category === "grammar") {
+                  const isMastered = log.status === "mastered";
+                  return (
+                    <motion.div 
+                      key={log._id || i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 * Math.min(i, 10) }}
+                      className="bg-surface-container-lowest rounded-[2rem] p-8 lg:p-10 shadow-sm border border-outline-variant/20 flex flex-col md:flex-row md:items-center justify-between gap-8 hover:shadow-lg transition-all duration-300"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] bg-surface-container-low px-3 py-1 rounded-full outline outline-1 outline-outline-variant/30">
+                            {date}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                            <FileEdit size={12} /> Grammar Quiz
+                          </span>
+                        </div>
+                        <h3 className="font-display text-2xl font-bold text-on-surface mb-3">{log.item_id || "Topic"}</h3>
+                        <div className="flex items-center gap-4">
+                          <div className="text-xl font-bold text-on-surface-variant">
+                            Score: <span className={isMastered ? "text-primary" : "text-secondary"}>{log.score || 0}/5</span>
+                          </div>
+                          {isMastered && (
+                            <div className="flex items-center gap-1 text-tertiary font-bold text-sm">
+                              <CheckCircle2 size={16} /> Mastered
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                }
+
+                if (log.sub_category === "vocabulary" || log.sub_category === "vocab") {
+                  return (
+                    <motion.div 
+                      key={log._id || i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 * Math.min(i, 10) }}
+                      className="bg-surface-container-lowest rounded-[2rem] p-8 lg:p-10 shadow-sm border border-outline-variant/20 flex flex-col md:flex-row md:items-center justify-between gap-8 hover:shadow-lg transition-all duration-300"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] bg-surface-container-low px-3 py-1 rounded-full outline outline-1 outline-outline-variant/30">
+                            {date}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs font-bold text-secondary bg-secondary/10 px-3 py-1 rounded-full">
+                            <BookOpen size={12} /> Vocabulary Set
+                          </span>
+                        </div>
+                        <h3 className="font-display text-2xl font-bold text-on-surface mb-3">{log.item_id || "Set"}</h3>
+                        <div className="flex items-center gap-2 text-tertiary font-bold">
+                          <Unlock size={18} /> Unlocked & Completed
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                }
+              }
+
               const ai = log.ai_result || {};
-              const date = new Date(log.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
               const hasError = ai.has_error;
               const hasSuggestions = ai.advanced_suggestions && ai.advanced_suggestions.length > 0;
               
@@ -259,7 +347,7 @@ export default function HistoryPage() {
                         {date}
                       </span>
                     </div>
-                    <h3 className="font-display text-2xl font-bold text-on-surface mb-3">{log.topic || "General"}</h3>
+                    <h3 className="font-display text-2xl font-bold text-on-surface mb-3">{log.topic || "General Conversation"}</h3>
                     <p className="text-body-md text-on-surface-variant mb-6 leading-relaxed line-clamp-2 italic">
                       "{ai.original_text || "..."}"
                     </p>

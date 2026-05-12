@@ -236,3 +236,32 @@ async def evaluate_pronunciation(audio_bytes: bytes, mime_type: str, target_text
         print("❌ Lỗi thực thi evaluate_pronunciation:")
         traceback.print_exc()
         return {"error": str(e)}
+
+INSIGHT_PROMPT = """
+You are an encouraging English tutor helping a student prepare for the TOEIC exam. 
+Analyze this recent learning activity data: {history_data}. 
+Write exactly 2 sentences in Vietnamese: one acknowledging their effort/trend, and one specific recommendation on what to practice next based on their data. 
+Return strictly as JSON: {{ "ai_insight": "your text here" }}
+"""
+
+async def generate_weekly_insight(history_data: list) -> dict:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return {"error": "Missing API Key"}
+        
+    try:
+        client = genai.Client(api_key=api_key)
+        prompt = INSIGHT_PROMPT.format(history_data=json.dumps(history_data, ensure_ascii=False))
+        
+        response = await client.aio.models.generate_content(
+            model="gemini-flash-latest",
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print("❌ Lỗi thực thi generate_weekly_insight:")
+        traceback.print_exc()
+        return {"error": str(e)}

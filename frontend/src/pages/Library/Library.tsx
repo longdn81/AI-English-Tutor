@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Layers, MessagesSquare, Mic2, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useAuth } from '../../context/AuthContext';
 import GrammarTopicList from './components/GrammarTopicList';
 import GrammarQuizBoard from './components/GrammarQuizBoard';
 import VocabularySets from './components/VocabularySets';
@@ -45,6 +46,8 @@ const categories = [
 ];
 
 export default function Library() {
+  const { user } = useAuth();
+  const userEmail = user?.email || '';
   const [currentView, setCurrentView] = useState<'main' | 'grammar_topics' | 'quiz' | 'vocab' | 'phrases' | 'pronunciation'>('main');
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [progressData, setProgressData] = useState<any[]>([]);
@@ -52,7 +55,7 @@ export default function Library() {
   useEffect(() => {
     if (currentView === 'main') {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      fetch(`${API_URL}/api/progress/student_vku@gmail.com`)
+      fetch(`${API_URL}/api/progress/${encodeURIComponent(userEmail)}`)
         .then(res => res.json())
         .then(data => {
           if (data.progress) setProgressData(data.progress);
@@ -91,7 +94,7 @@ export default function Library() {
   }
 
   if (currentView === 'quiz') {
-    return <GrammarQuizBoard topic={selectedTopic} email="student_vku@gmail.com" onBack={handleBackToMain} />;
+    return <GrammarQuizBoard topic={selectedTopic} email={userEmail} onBack={handleBackToMain} />;
   }
 
   if (currentView === 'vocab') {
@@ -99,11 +102,11 @@ export default function Library() {
   }
 
   if (currentView === 'phrases') {
-    return <TopicPhrases email="student_vku@gmail.com" onBack={handleBackToMain} />;
+    return <TopicPhrases email={userEmail} onBack={handleBackToMain} />;
   }
 
   if (currentView === 'pronunciation') {
-    return <PronunciationWorkshop email="student_vku@gmail.com" onBack={handleBackToMain} />;
+    return <PronunciationWorkshop email={userEmail} onBack={handleBackToMain} />;
   }
 
   // Calculate dynamic stats

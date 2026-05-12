@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, Loader2, Play, Volume2, StopCircle, Sparkles, RefreshCcw } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const HARDCODED_WORDS = ["Diligent", "Procrastinate", "Overwhelmed", "Milestone", "Resilient"];
 
 export default function VocabularySets({ onBack }: { onBack: () => void }) {
+  const { user } = useAuth();
+  const userEmail = user?.email || '';
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshingWords, setIsRefreshingWords] = useState(false);
   const [currentWords, setCurrentWords] = useState(HARDCODED_WORDS);
@@ -23,7 +26,7 @@ export default function VocabularySets({ onBack }: { onBack: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          user_email: "student_vku@gmail.com", 
+          user_email: userEmail, 
           task_type: "vocab_story", 
           context: currentWords.join(", ") 
         })
@@ -37,10 +40,10 @@ export default function VocabularySets({ onBack }: { onBack: () => void }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            user_email: "student_vku@gmail.com", 
+            user_email: userEmail, 
             category: "library", 
             sub_category: "vocabulary", 
-            item_id: "current_vocab_set_id", 
+            item_id: currentWords.slice(0, 3).join(", ") + "...", 
             status: "completed" 
           })
         }).catch(err => console.error("Failed to update progress:", err));
@@ -61,7 +64,7 @@ export default function VocabularySets({ onBack }: { onBack: () => void }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          user_email: "student_vku@gmail.com", 
+          user_email: userEmail, 
           task_type: "vocab_words", 
           context: "random intermediate to advanced vocabulary" 
         })

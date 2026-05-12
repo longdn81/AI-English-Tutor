@@ -1,12 +1,15 @@
 import traceback
+import os
+import jwt
+from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, File, Form, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
 
-from ai_service import get_ai_feedback, get_session_summary, generate_library_content, evaluate_pronunciation
-from database import save_conversation, get_conversations_by_user, save_quiz_result, get_user_progress, update_user_progress
+from ai_service import get_ai_feedback, get_session_summary, generate_library_content, evaluate_pronunciation, generate_weekly_insight
+from database import save_conversation, get_conversations_by_user, save_quiz_result, get_user_progress, update_user_progress, get_unified_history, get_or_create_user, create_user_with_password, verify_user_password
 
 app = FastAPI(title="AI English Tutor API")
 
@@ -19,6 +22,92 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ─────────────────────────────────────────────
+# JWT HELPER
+# ─────────────────────────────────────────────
+
+JWT_SECRET = os.getenv("JWT_SECRET", "lingoflow-super-secret-change-in-prod")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_DAYS = 30
+
+def make_jwt(user_id: str, email: str) -> str:
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRE_DAYS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def user_response(user: dict) -> dict:
+    """Standard user response shape including a JWT token."""
+    return {
+        "user_id": user["_id"],
+        "email": user["email"],
+        "name": user.get("name", ""),
+        "picture": user.get("picture", ""),
+        "token": make_jwt(user["_id"], user["email"])
+    }
+
+
+# ─────────────────────────────────────────────
+# AUTH
+# ─────────────────────────────────────────────
+
+class GoogleAuthRequest(BaseModel):
+    email: str
+    name: str = ""
+    picture: str = ""
+
+@app.post("/api/auth/google")
+async def google_auth(req: GoogleAuthRequest):
+    """Receive Google user info from frontend, upsert user in DB, return user + JWT."""
+    try:
+        user = await get_or_create_user(email=req.email, name=req.name, picture=req.picture)
+        return user_response(user)
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+class EmailRegisterRequest(BaseModel):
+    email: str
+    name: str
+    password: str
+
+@app.post("/api/auth/register")
+async def register(req: EmailRegisterRequest):
+    """Register a new account with email + password."""
+    try:
+        user = await create_user_with_password(req.email, req.name, req.password)
+        return user_response(user)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+class EmailLoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/login")
+async def login_email(req: EmailLoginRequest):
+    """Log in with email + password."""
+    try:
+        user = await verify_user_password(req.email, req.password)
+        return user_response(user)
+    except ValueError as e:
+        return JSONResponse(status_code=401, content={"error": str(e)})
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ─────────────────────────────────────────────
+# CHAT
+# ─────────────────────────────────────────────
 
 @app.post("/api/chat")
 async def chat(
@@ -161,6 +250,42 @@ async def evaluate_pronunciation_endpoint(
         
         result = await evaluate_pronunciation(audio_bytes, mime_type, target_text)
         return result
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)},
+        )
+
+@app.get("/api/history/dashboard/{user_email}")
+async def get_history_dashboard(user_email: str):
+    try:
+        unified = await get_unified_history(user_email)
+        recent_feed = unified[:15]
+        
+        summary_data = []
+        for item in recent_feed:
+            if item["type"] == "conversation":
+                score = None
+                if "ai_result" in item and "summary" in item["ai_result"]:
+                    score = item["ai_result"]["summary"].get("overall_score")
+                summary_data.append({
+                    "type": "conversation", 
+                    "topic": item.get("topic"), 
+                    "score": score
+                })
+            else:
+                summary_data.append({
+                    "type": "progress", 
+                    "module": item.get("sub_category"), 
+                    "status": item.get("status"), 
+                    "score": item.get("score")
+                })
+                
+        insight_result = await generate_weekly_insight(summary_data)
+        insight_text = insight_result.get("ai_insight", "Keep up the good work! Your progress is being tracked.")
+        
+        return {"feed": recent_feed, "insight": insight_text}
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(

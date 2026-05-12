@@ -4,3 +4,5 @@ motor
 python-dotenv
 google-genai
 python-multipart
+passlib[bcrypt]
+PyJWT

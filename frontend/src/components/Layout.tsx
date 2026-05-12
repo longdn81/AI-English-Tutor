@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { Mic, History, Library as LibraryIcon, Settings as SettingsIcon, User } from 'lucide-react';
+import { NavLink, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { Mic, History, Library as LibraryIcon, Settings as SettingsIcon, LogOut, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../context/AuthContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -16,9 +17,35 @@ const navItems = [
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isLoading, logout } = useAuth();
+
   const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
 
+  // Show spinner while restoring session from localStorage
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <Loader2 className="animate-spin text-primary" size={40} />
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated (and not already on auth page)
+  if (!user && !isAuthPage) {
+    return <Navigate to="/login" replace />;
+  }
+
   if (isAuthPage) return <>{children}</>;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -28,6 +55,7 @@ export default function Layout({ children }: LayoutProps) {
           <h1 className="font-display text-2xl font-bold text-primary">LingoFlow</h1>
           <p className="text-sm text-on-surface-variant mt-1">Your Language Journey</p>
         </div>
+
         <nav className="flex-1 flex flex-col gap-2">
           {navItems.map((item) => (
             <NavLink
@@ -46,13 +74,33 @@ export default function Layout({ children }: LayoutProps) {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto px-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-            AL
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-on-surface">Alex Learner</p>
-            <p className="text-xs text-on-surface-variant">Spanish - B1</p>
+
+        {/* User profile area */}
+        <div className="mt-auto px-2">
+          <div className="flex items-center gap-3 p-3 rounded-2xl hover:bg-surface-container transition-colors">
+            {user?.picture ? (
+              <img
+                src={user.picture}
+                alt={user.name}
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
+                {initials}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-on-surface truncate">{user?.name || 'User'}</p>
+              <p className="text-xs text-on-surface-variant truncate">{user?.email}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="text-on-surface-variant hover:text-error transition-colors flex-shrink-0 p-1 rounded-lg hover:bg-error/10"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>
@@ -60,9 +108,18 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Top App Bar */}
       <header className="lg:hidden fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 py-4 bg-surface/80 backdrop-blur-md border-b border-outline-variant/10 shadow-sm">
         <h1 className="font-display text-xl font-bold text-primary">LingoFlow</h1>
-        <button className="text-primary hover:bg-surface-container p-2 rounded-full transition-colors">
-          <User size={24} />
-        </button>
+        {user?.picture ? (
+          <img
+            src={user.picture}
+            alt={user.name}
+            className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/20"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+            {initials}
+          </div>
+        )}
       </header>
 
       {/* Main Content */}
