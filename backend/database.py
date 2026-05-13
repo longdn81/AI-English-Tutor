@@ -3,6 +3,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
+from bson import ObjectId
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -16,6 +17,15 @@ conversations_collection = db["conversations"]
 quiz_results_collection = db["quiz_results"]
 user_progress_collection = db["user_progress"]
 users_collection = db["users"]
+
+DEFAULT_PREFERENCES = {
+    "notifications": {
+        "reminders": True,
+        "reflections": True,
+        "new_content": False
+    },
+    "dataSharing": False
+}
 
 
 # ─────────────────────────────────────────────
@@ -33,6 +43,7 @@ async def get_or_create_user(email: str, name: str = "", picture: str = "") -> d
         "email": email,
         "name": name,
         "picture": picture,
+        "preferences": DEFAULT_PREFERENCES,
         "created_at": datetime.utcnow(),
     }
     result = await users_collection.insert_one(new_user)
@@ -52,6 +63,7 @@ async def create_user_with_password(email: str, name: str, plain_password: str) 
         "picture": "",
         "password_hash": pwd_context.hash(plain_password),
         "auth_provider": "email",
+        "preferences": DEFAULT_PREFERENCES,
         "created_at": datetime.utcnow(),
     }
     result = await users_collection.insert_one(new_user)
@@ -70,6 +82,57 @@ async def verify_user_password(email: str, plain_password: str) -> dict:
         raise ValueError("Incorrect password. Please try again.")
     user["_id"] = str(user["_id"])
     return user
+
+
+async def get_user_preferences(user_id: str) -> dict:
+    """Fetch preferences for a specific user_id."""
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if user:
+        return user.get("preferences", DEFAULT_PREFERENCES)
+    return DEFAULT_PREFERENCES
+
+
+async def update_user_preferences(user_id: str, preferences: dict):
+    """Update preferences for a specific user_id."""
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"preferences": preferences}}
+    )
+
+
+async def delete_user_account(user_id: str):
+    """Permanently delete user and all associated data."""
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        return False
+    
+    email = user.get("email")
+    
+    # 1. Delete user document
+    await users_collection.delete_one({"_id": ObjectId(user_id)})
+    
+    # 2. Delete all related data by email (as currently indexed)
+    if email:
+        await conversations_collection.delete_many({"user_email": email})
+        await user_progress_collection.delete_many({"user_email": email})
+        await quiz_results_collection.delete_many({"user_email": email})
+    
+    return True
+
+
+async def update_user_profile(user_id: str, profile_data: dict):
+    """Update user profile information."""
+    allowed_fields = ["name", "picture", "address", "phone"]
+    update_data = {k: v for k, v in profile_data.items() if k in allowed_fields}
+    
+    if not update_data:
+        return None
+        
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": update_data}
+    )
+    return await users_collection.find_one({"_id": ObjectId(user_id)})
 
 
 # ─────────────────────────────────────────────

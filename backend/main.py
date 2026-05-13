@@ -9,7 +9,13 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from ai_service import get_ai_feedback, get_session_summary, generate_library_content, evaluate_pronunciation, generate_weekly_insight
-from database import save_conversation, get_conversations_by_user, save_quiz_result, get_user_progress, update_user_progress, get_unified_history, get_or_create_user, create_user_with_password, verify_user_password
+from database import (
+    save_conversation, get_conversations_by_user, save_quiz_result, 
+    get_user_progress, update_user_progress, get_unified_history, 
+    get_or_create_user, create_user_with_password, verify_user_password,
+    get_user_preferences, update_user_preferences, delete_user_account,
+    update_user_profile
+)
 
 app = FastAPI(title="AI English Tutor API")
 
@@ -46,6 +52,9 @@ def user_response(user: dict) -> dict:
         "email": user["email"],
         "name": user.get("name", ""),
         "picture": user.get("picture", ""),
+        "address": user.get("address", ""),
+        "phone": user.get("phone", ""),
+        "preferences": user.get("preferences", {}),
         "token": make_jwt(user["_id"], user["email"])
     }
 
@@ -100,6 +109,60 @@ async def login_email(req: EmailLoginRequest):
         return user_response(user)
     except ValueError as e:
         return JSONResponse(status_code=401, content={"error": str(e)})
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ─────────────────────────────────────────────
+# USER PREFERENCES & ACCOUNT
+# ─────────────────────────────────────────────
+
+@app.get("/api/user/preferences/{user_id}")
+async def get_prefs(user_id: str):
+    """Fetch user preferences."""
+    try:
+        prefs = await get_user_preferences(user_id)
+        return prefs
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.put("/api/user/preferences/{user_id}")
+async def update_prefs(user_id: str, prefs: dict):
+    """Update user preferences."""
+    try:
+        await update_user_preferences(user_id, prefs)
+        return {"status": "success"}
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.delete("/api/user/account/{user_id}")
+async def delete_account(user_id: str):
+    """Delete user account and all associated data."""
+    try:
+        success = await delete_user_account(user_id)
+        if not success:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+        return {"status": "success"}
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.put("/api/user/profile/{user_id}")
+async def update_profile(user_id: str, profile: dict):
+    """Update user profile information."""
+    try:
+        user = await update_user_profile(user_id, profile)
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+        # Return updated user response
+        user["_id"] = str(user["_id"])
+        return user_response(user)
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})

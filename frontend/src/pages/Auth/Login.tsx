@@ -90,7 +90,7 @@ export default function Login() {
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between pl-1 pr-1">
                 <label className="text-sm font-medium text-on-surface" htmlFor="password">Password</label>
-                <Link to="/forgot-password" size="sm" className="text-xs text-primary font-semibold hover:underline">
+                <Link to="/forgot-password" className="text-xs text-primary font-semibold hover:underline">
                   Forgot password?
                 </Link>
               </div>

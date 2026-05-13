@@ -9,6 +9,8 @@ interface User {
   email: string;
   name: string;
   picture: string;
+  address?: string;
+  phone?: string;
   token?: string;
 }
 
@@ -19,6 +21,7 @@ interface AuthContextType {
   loginWithEmail: (email: string, password: string) => Promise<void>;
   registerWithEmail: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (data: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -80,8 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updateUser = (data: User) => {
+    saveUser(data);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, loginWithEmail, registerWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithEmail, registerWithEmail, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
