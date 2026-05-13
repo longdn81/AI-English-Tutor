@@ -188,16 +188,6 @@ async def chat(
         # Get AI feedback from Gemini
         ai_result = await get_ai_feedback(audio_bytes=audio_bytes, mime_type=mime_type, topic=topic, text_message=text_message)
 
-        # Mock Auth: Hardcode user_email for now
-        user_email = "student_vku@gmail.com"
-
-        # Save the conversation to MongoDB
-        await save_conversation({
-            "topic": topic,
-            "mime_type": mime_type,
-            "ai_result": ai_result,
-        }, user_email=user_email)
-
         return ai_result
 
     except Exception as e:
@@ -210,6 +200,11 @@ async def chat(
 class SummaryRequest(BaseModel):
     messages: List[dict]
 
+class SaveConversationRequest(BaseModel):
+    user_id: str
+    topic: str
+    ai_result: dict
+
 @app.post("/api/chat/summary")
 async def chat_summary(req: SummaryRequest):
     try:
@@ -221,6 +216,20 @@ async def chat_summary(req: SummaryRequest):
             status_code=500,
             content={"error": str(e)},
         )
+
+@app.post("/api/conversations")
+async def save_conv_endpoint(req: SaveConversationRequest):
+    """Explicitly save a conversation result."""
+    try:
+        await save_conversation(
+            user_id=req.user_id,
+            topic=req.topic,
+            ai_result=req.ai_result
+        )
+        return {"status": "success"}
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/history/{user_email}")
 async def get_history(user_email: str):

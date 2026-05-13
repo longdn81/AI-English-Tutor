@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { Mic, X, Keyboard, MoreVertical, Bot, Lightbulb, Sparkles, History, Loader2, AlertCircle, Volume2, Send, Award, Star, MessageSquare, BookOpen, VolumeX, Settings2, Trash2, XCircle, ChevronRight, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -16,11 +17,12 @@ interface Message {
   timestamp: Date;
 }
 
-const API_URL = 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function ChatSession() {
   const { topicId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Derive a human-readable topic name from the URL slug
   const initialTopic = topicId
@@ -146,6 +148,27 @@ export default function ChatSession() {
     };
   }, []);
 
+  const saveConversationToDB = useCallback(async (evaluationData: any) => {
+    // Only trigger save if transcription is NOT empty
+    if (!user || !evaluationData.original_text || evaluationData.original_text.trim() === "" || evaluationData.original_text === "...") {
+      return;
+    }
+    
+    try {
+      await fetch(`${API_URL}/api/conversations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.email,
+          topic: localTopic,
+          ai_result: evaluationData
+        })
+      });
+    } catch (err) {
+      console.error("Failed to save conversation:", err);
+    }
+  }, [user, localTopic]);
+
   // ── Send audio to backend ─────────────────────────────
   const sendAudioToAPI = useCallback(async (audioBlob: Blob) => {
     setIsProcessing(true);
@@ -203,6 +226,9 @@ export default function ChatSession() {
       if (data.ai_response) {
         speak(data.ai_response, aiMessage.id);
       }
+
+      // Save to History DB
+      saveConversationToDB(data);
     } catch (err: any) {
       console.error('API Error:', err);
       setError(err.message || 'Something went wrong. Please try again.');
@@ -326,6 +352,9 @@ export default function ChatSession() {
       };
       setMessages(prev => [...prev, aiMessage]);
       if (data.ai_response) speak(data.ai_response, aiMessage.id);
+
+      // Save to History DB
+      saveConversationToDB(data);
     } catch (err: any) {
       setError(err.message);
     } finally {

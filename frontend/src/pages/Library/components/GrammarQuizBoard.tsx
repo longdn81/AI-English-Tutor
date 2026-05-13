@@ -14,6 +14,7 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [isNextReady, setIsNextReady] = useState(false);
 
   useEffect(() => {
     fetchQuiz();
@@ -69,18 +70,47 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
     }
   }, [isFinished, quizData, email, topic, score]);
 
-  const handleAnswer = (option: string) => {
-    if (selectedAnswer) return; // Prevent double click
+  const normalize = (text: string) => text.replace(/^[A-D]\.\s*/, '').toLowerCase().trim();
+  const checkIsCorrect = (opt: string, ans: string, index: number) => {
+    if (!opt || !ans) return false;
+
+    // Clean up strings: lowercase, remove "A.", "B.", "Option C", and punctuations
+    const clean = (str: string) => String(str).toLowerCase()
+      .replace(/^(option\s+)?[a-d][\.\)]?\s*/, '')
+      .replace(/[^\w\s]/gi, '')
+      .trim();
+
+    const cleanedOpt = clean(opt);
+    const cleanedAns = clean(ans);
+
+    // 1. Strict equality check
+    if (cleanedOpt === cleanedAns) return true;
+
+    // 2. Fallback for lazy AI returning just "a", "b", "c", "d"
+    if (cleanedAns === String.fromCharCode(97 + index)) return true;
+
+    return false;
+  };
+
+  const handleAnswer = (option: string, index: number) => {
+    if (selectedAnswer) return;
     setSelectedAnswer(option);
-    if (option === quizData.questions[currentIndex].correct_answer) {
+    // Dùng hàm checkIsCorrect mới
+    if (checkIsCorrect(option, quizData.questions[currentIndex].correct_answer, index)) {
       setScore(s => s + 1);
     }
+
+    // Prevent double-click accidental skip
+    setTimeout(() => {
+      setIsNextReady(true);
+    }, 500);
   };
 
   const handleNext = () => {
     if (currentIndex < quizData.questions.length - 1) {
       setCurrentIndex(i => i + 1);
       setSelectedAnswer(null);
+      setIsNextReady(false);
     } else {
       setIsFinished(true);
     }
@@ -163,7 +193,8 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
         <div className="flex flex-col gap-3 mb-8">
           {q.options.map((opt: string, i: number) => {
             const isSelected = selectedAnswer === opt;
-            const isCorrect = opt === q.correct_answer;
+            // DÙNG HÀM MỚI Ở ĐÂY
+            const isCorrect = checkIsCorrect(opt, q.correct_answer, i);
             let btnClass = "bg-surface-container hover:bg-surface-container-high border-outline-variant/20 text-on-surface";
 
             if (selectedAnswer) {
@@ -176,7 +207,8 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
               <button
                 key={i}
                 disabled={!!selectedAnswer}
-                onClick={() => handleAnswer(opt)}
+                // TRUYỀN THÊM BIẾN `i` VÀO handleAnswer
+                onClick={() => handleAnswer(opt, i)}
                 className={`w-full flex items-center justify-between text-left p-5 rounded-2xl border-2 font-medium transition-all ${btnClass}`}
               >
                 <span className="text-lg">{opt}</span>
@@ -199,7 +231,12 @@ export default function GrammarQuizBoard({ topic, email, onBack }: { topic: stri
 
               <button
                 onClick={handleNext}
-                className="w-full flex justify-center items-center gap-2 py-4 bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/90 transition-colors"
+                disabled={!isNextReady}
+                className={`w-full flex justify-center items-center gap-2 py-4 rounded-xl font-bold transition-all ${
+                  isNextReady 
+                    ? 'bg-primary text-on-primary hover:bg-primary/90 shadow-lg shadow-primary/20' 
+                    : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed opacity-70'
+                }`}
               >
                 {currentIndex < quizData.questions.length - 1 ? 'Next Question' : 'View Results'} <ChevronRight size={20} />
               </button>

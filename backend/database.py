@@ -139,11 +139,14 @@ async def update_user_profile(user_id: str, profile_data: dict):
 # CONVERSATIONS
 # ─────────────────────────────────────────────
 
-async def save_conversation(data: dict, user_email: str):
+async def save_conversation(user_id: str, topic: str, ai_result: dict):
     """Insert a conversation document into the conversations collection."""
-    data["user_email"] = user_email
-    if "created_at" not in data:
-        data["created_at"] = datetime.utcnow()
+    data = {
+        "user_email": user_id,
+        "topic": topic,
+        "ai_result": ai_result,
+        "created_at": datetime.utcnow()
+    }
     result = await conversations_collection.insert_one(data)
     return result
 

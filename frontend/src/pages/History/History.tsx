@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Clock, SpellCheck, TrendingUp, Play, AlertCircle, Lightbulb, CheckCircle2, X, Volume2, Loader2, StopCircle, Filter, Sparkles, BookOpen, FileEdit, Unlock } from 'lucide-react';
+import { Clock, SpellCheck, TrendingUp, Play, AlertCircle, Lightbulb, CheckCircle2, X, Volume2, Loader2, StopCircle, Filter, Sparkles, BookOpen, FileEdit, Unlock, Mic2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
@@ -327,6 +327,70 @@ export default function HistoryPage() {
                     </motion.div>
                   );
                 }
+
+                if (log.sub_category === "phrases") {
+                  return (
+                    <motion.div 
+                      key={log._id || i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 * Math.min(i, 10) }}
+                      className="bg-surface-container-lowest rounded-[2rem] p-8 lg:p-10 shadow-sm border border-outline-variant/20 flex flex-col md:flex-row md:items-center justify-between gap-8 hover:shadow-lg transition-all duration-300"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] bg-surface-container-low px-3 py-1 rounded-full outline outline-1 outline-outline-variant/30">
+                            {date}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs font-bold text-tertiary bg-tertiary/10 px-3 py-1 rounded-full">
+                            <Sparkles size={12} /> Topic Phrases
+                          </span>
+                        </div>
+                        <h3 className="font-display text-2xl font-bold text-on-surface mb-3">{log.item_id || "Situation"}</h3>
+                        <div className="flex items-center gap-2 text-tertiary font-bold">
+                          <CheckCircle2 size={18} /> Lesson Completed
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                }
+
+                if (log.sub_category === "pronunciation") {
+                  const isMastered = log.status === "mastered";
+                  return (
+                    <motion.div 
+                      key={log._id || i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 * Math.min(i, 10) }}
+                      className="bg-surface-container-lowest rounded-[2rem] p-8 lg:p-10 shadow-sm border border-outline-variant/20 flex flex-col md:flex-row md:items-center justify-between gap-8 hover:shadow-lg transition-all duration-300"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-4">
+                          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] bg-surface-container-low px-3 py-1 rounded-full outline outline-1 outline-outline-variant/30">
+                            {date}
+                          </span>
+                          <span className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                            <Mic2 size={12} /> Pronunciation
+                          </span>
+                        </div>
+                        <h3 className="font-display text-2xl font-bold text-on-surface mb-3 leading-snug italic">"{log.item_id || "Sentence"}"</h3>
+                        <div className="flex items-center gap-4">
+                          <div className="text-xl font-bold text-on-surface-variant">
+                            Score: <span className={isMastered ? "text-primary" : "text-error"}>{log.score || 0}/100</span>
+                          </div>
+                          {isMastered && (
+                            <div className="flex items-center gap-1 text-tertiary font-bold text-sm">
+                              <CheckCircle2 size={16} /> Mastered
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                }
+
+                return null; // Don't fall through to conversation rendering
               }
 
               const ai = log.ai_result || {};
