@@ -19,10 +19,14 @@ from database import (
 
 app = FastAPI(title="AI English Tutor API")
 
-# CORS configuration - Allow all origins for production
+# CORS configuration - Allow specific origins for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://ai-english-tutor-ashy.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
