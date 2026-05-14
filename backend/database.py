@@ -61,12 +61,22 @@ async def create_user_with_password(email: str, name: str, plain_password: str) 
     if not isinstance(plain_password, str):
         raise ValueError(f"Password must be a string, got {type(plain_password)}")
     
-    if len(plain_password.encode('utf-8')) > 72:
-        raise ValueError("Password is too long. Maximum 72 bytes allowed.")
+    # Log original password info
+    print(f"[DB] Original password length: {len(plain_password)}")
+    print(f"[DB] Original password bytes: {len(plain_password.encode('utf-8'))}")
+    
+    # Truncate to 72 bytes if necessary (bcrypt hard limit)
+    password_bytes = plain_password.encode('utf-8')
+    if len(password_bytes) > 72:
+        print(f"[DB] WARNING: Password exceeds 72 bytes, truncating from {len(password_bytes)} to 72")
+        plain_password = password_bytes[:72].decode('utf-8', errors='ignore')
+        print(f"[DB] Truncated password length: {len(plain_password)}")
     
     if len(plain_password) < 6:
         raise ValueError("Password must be at least 6 characters long.")
 
+    print(f"[DB] About to hash password of length: {len(plain_password)}")
+    
     new_user = {
         "email": email,
         "name": name,

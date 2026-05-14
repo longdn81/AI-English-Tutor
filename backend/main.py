@@ -92,18 +92,22 @@ class EmailRegisterRequest(BaseModel):
 async def register(req: EmailRegisterRequest):
     """Register a new account with email + password."""
     try:
-        # Debug logging
+        # Enhanced debug logging
         print(f"[REGISTER] Email: {req.email}")
         print(f"[REGISTER] Name: {req.name}")
         print(f"[REGISTER] Password type: {type(req.password)}")
         print(f"[REGISTER] Password length: {len(req.password)}")
         print(f"[REGISTER] Password bytes: {len(req.password.encode('utf-8'))}")
+        print(f"[REGISTER] Password preview: {req.password[:10]}...{req.password[-10:] if len(req.password) > 20 else ''}")
+        print(f"[REGISTER] Password repr: {repr(req.password)}")
         
         user = await create_user_with_password(req.email, req.name, req.password)
         return user_response(user)
     except ValueError as e:
+        print(f"[REGISTER ERROR] ValueError: {str(e)}")
         return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
+        print(f"[REGISTER ERROR] Exception: {str(e)}")
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": str(e)})
 
