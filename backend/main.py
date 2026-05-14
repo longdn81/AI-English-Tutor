@@ -92,6 +92,13 @@ class EmailRegisterRequest(BaseModel):
 async def register(req: EmailRegisterRequest):
     """Register a new account with email + password."""
     try:
+        # Debug logging
+        print(f"[REGISTER] Email: {req.email}")
+        print(f"[REGISTER] Name: {req.name}")
+        print(f"[REGISTER] Password type: {type(req.password)}")
+        print(f"[REGISTER] Password length: {len(req.password)}")
+        print(f"[REGISTER] Password bytes: {len(req.password.encode('utf-8'))}")
+        
         user = await create_user_with_password(req.email, req.name, req.password)
         return user_response(user)
     except ValueError as e:

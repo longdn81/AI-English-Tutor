@@ -57,6 +57,16 @@ async def create_user_with_password(email: str, name: str, plain_password: str) 
     if existing:
         raise ValueError("Email already registered. Please log in instead.")
 
+    # Validate password is a string and within bcrypt limits
+    if not isinstance(plain_password, str):
+        raise ValueError(f"Password must be a string, got {type(plain_password)}")
+    
+    if len(plain_password.encode('utf-8')) > 72:
+        raise ValueError("Password is too long. Maximum 72 bytes allowed.")
+    
+    if len(plain_password) < 6:
+        raise ValueError("Password must be at least 6 characters long.")
+
     new_user = {
         "email": email,
         "name": name,
